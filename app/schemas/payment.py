@@ -27,6 +27,16 @@ class PaymentEvent(BaseModel):
     payment_id: uuid.UUID = Field(description="Идентификатор платежа")
 
 
+class PaymentWebhookPayload(BaseModel):
+    """Тело POST-уведомления на webhook_url."""
+
+    payment_id: uuid.UUID = Field(description="Идентификатор платежа")
+    status: PaymentStatus = Field(description="Итоговый статус: succeeded или failed")
+    amount: Decimal = Field(description="Сумма платежа")
+    currency: Currency = Field(description="Валюта платежа")
+    processed_at: datetime | None = Field(description="Дата и время обработки")
+
+
 class PaymentCreateResponse(BaseModel):
     """Ответ POST /api/v1/payments (202 Accepted)."""
 
