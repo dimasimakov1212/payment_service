@@ -8,7 +8,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str = "postgresql+asyncpg://payment:payment@localhost:5432/payment_service"
+    database_url: str = "postgresql+asyncpg://payment:payment@localhost:5433/payment_service"
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
     api_key: str = "dev-api-key"
     outbox_poll_interval_seconds: float = 1.0
