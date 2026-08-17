@@ -20,7 +20,7 @@ docker compose exec postgres pg_isready -U payment -d payment_service
 docker compose exec rabbitmq rabbitmq-diagnostics -q ping
 ```
 
-RabbitMQ UI: [http://localhost:15672](http://localhost:15672) (guest/guest). После `POST /api/v1/payments` сообщение должно появиться в очереди `payments.new`; `payments.new.dlq` остаётся пустой.
+RabbitMQ UI: [http://localhost:15672](http://localhost:15672) (guest/guest). После `POST /api/v1/payments` сообщение появляется в `payments.new`; consumer забирает его и обновляет статус платежа. `payments.new.dlq` на этом этапе пуста.
 
 Миграции:
 
@@ -36,11 +36,19 @@ alembic upgrade head
 source .venv/bin/activate
 ```
 
-Запуск:
+API (outbox-publisher внутри процесса):
 
 ```bash
 uvicorn app.api.main:app --reload --port 8000
 ```
+
+Consumer (эмуляция шлюза, обновление статуса):
+
+```bash
+faststream run app.consumer.main:app
+```
+
+После `POST /api/v1/payments` через 2–5 секунд `GET /api/v1/payments/{id}` должен вернуть `succeeded` или `failed` и заполненный `processed_at`. В RabbitMQ UI у `payments.new` Ready падает до 0, `payments.new.dlq` пуста.
 
 ## API
 

@@ -21,6 +21,12 @@ class PaymentCreateRequest(BaseModel):
     webhook_url: HttpUrl = Field(description="URL для уведомления о результате")
 
 
+class PaymentEvent(BaseModel):
+    """Событие payments.new из очереди."""
+
+    payment_id: uuid.UUID = Field(description="Идентификатор платежа")
+
+
 class PaymentCreateResponse(BaseModel):
     """Ответ POST /api/v1/payments (202 Accepted)."""
 

@@ -1,11 +1,19 @@
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import async_session_factory
+from app.enums import PaymentStatus
 from app.models import OutboxMessage, Payment
 from app.schemas.payment import PaymentCreateRequest
+from app.services.gateway import emulate_gateway
+
+
+class PaymentNotFoundError(LookupError):
+    """Платёж с указанным id не найден."""
 
 
 async def get_payment_by_id(session: AsyncSession, payment_id: uuid.UUID) -> Payment | None:
@@ -65,3 +73,19 @@ async def create_payment(
         if existing is not None:
             return existing
         raise
+
+
+async def process_new_payment(payment_id: uuid.UUID) -> Payment:
+    """Обрабатывает платёж из очереди: эмуляция шлюза только для pending."""
+
+    async with async_session_factory() as session:
+        async with session.begin():
+            payment = await session.get(Payment, payment_id, with_for_update=True)
+            if payment is None:
+                raise PaymentNotFoundError(f"Payment {payment_id} not found")
+            if payment.status != PaymentStatus.PENDING:
+                return payment
+
+            payment.status = await emulate_gateway()
+            payment.processed_at = datetime.now(timezone.utc)
+            return payment
