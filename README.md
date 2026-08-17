@@ -18,3 +18,9 @@ Compose подхватывает `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES
 ```bash
 docker compose exec postgres pg_isready -U payment -d payment_service
 ```
+
+Миграции:
+
+```bash
+alembic upgrade head
+```
