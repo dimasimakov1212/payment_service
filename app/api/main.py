@@ -1,16 +1,33 @@
+import asyncio
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, verify_api_key
 from app.schemas import PaymentCreateRequest, PaymentCreateResponse, PaymentResponse
+from app.services.outbox import run_outbox_publisher
 from app.services.payment import create_payment, get_payment_by_id
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Запускает outbox-publisher на время жизни приложения."""
+
+    task = asyncio.create_task(run_outbox_publisher())
+    yield
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
 
 app = FastAPI(
     title="Payment Processing Service",
     description="Асинхронный сервис процессинга платежей.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 payments_router = APIRouter(

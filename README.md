@@ -1,23 +1,26 @@
 # Асинхронный сервис процессинга платежей
 
-## Локальная БД (Postgres)
+## Локальная инфраструктура
 
-Учётные данные и порт задаются через `.env` (см. `.env.example`).
+Учётные данные и порты задаются через `.env` (см. `.env.example`).
 
 ```bash
 cp .env.example .env
-docker compose up -d postgres
+docker compose up -d postgres rabbitmq
 docker compose ps
 ```
 
 Compose подхватывает `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` из `.env`.
-Приложение подключается по `DATABASE_URL` (по умолчанию `localhost:5433`).
+Приложение подключается по `DATABASE_URL` (по умолчанию `localhost:5433`) и `RABBITMQ_URL` (`localhost:5672`).
 
 Проверка готовности:
 
 ```bash
 docker compose exec postgres pg_isready -U payment -d payment_service
+docker compose exec rabbitmq rabbitmq-diagnostics -q ping
 ```
+
+RabbitMQ UI: [http://localhost:15672](http://localhost:15672) (guest/guest). После `POST /api/v1/payments` сообщение должно появиться в очереди `payments.new`; `payments.new.dlq` остаётся пустой.
 
 Миграции:
 
