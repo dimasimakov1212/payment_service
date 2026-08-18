@@ -7,7 +7,7 @@
 - Идемпотентное создание платежа через `Idempotency-Key`
 - Гарантированная публикация событий через Outbox (`payments.new`)
 - Асинхронная обработка через RabbitMQ + FastStream
-- Retry webhook до 3 попыток с задержками `1s` и `2s`
+- Retry webhook до 3 попыток с задержками 1 и 2 секунды
 - Dead Letter Queue для недоставленных webhook (`payments.new.dlq`)
 - Авторизация API через `X-API-Key`
 
@@ -45,6 +45,46 @@ RabbitMQ UI: [http://localhost:15672](http://localhost:15672) (guest/guest).
 ```bash
 docker compose down
 ```
+
+## Тесты (pytest)
+
+Есть два уровня тестов:
+- unit-тесты для локальной логики `webhook` и `gateway`
+- интеграционные тесты для live Docker-стека
+
+### Unit-тесты
+
+Не требуют поднятого Docker-окружения.
+
+Запуск:
+
+```bash
+./.venv/bin/pytest -q tests/unit
+```
+
+Проверяются сценарии:
+- успешная отправка webhook с первой попытки
+- retry webhook и финальный `WebhookDeliveryError`
+- ветки `SUCCEEDED` / `FAILED` в `emulate_gateway`
+
+### Интеграционные тесты
+
+Тесты предполагают, что docker compose уже запущен:
+
+```bash
+docker compose up --build -d
+```
+
+Запуск:
+
+```bash
+./.venv/bin/pytest -q
+```
+
+Проверяются сценарии:
+- happy path: `POST /payments` → polling `GET /payments/{id}` → финальный `succeeded/failed`
+- идемпотентность: повторный `POST` с тем же `Idempotency-Key` возвращает тот же `payment_id`
+- retry и DLQ: webhook на недоступный URL не доставляется и событие уходит в `payments.new.dlq`
 
 ## API
 
