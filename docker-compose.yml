@@ -28,5 +28,51 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    build: .
+    container_name: payment_service_migrate
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-payment}:${POSTGRES_PASSWORD:-payment}@postgres:5432/${POSTGRES_DB:-payment_service}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: .
+    container_name: payment_service_api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-payment}:${POSTGRES_PASSWORD:-payment}@postgres:5432/${POSTGRES_DB:-payment_service}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      API_KEY: ${API_KEY:-dev-api-key}
+      OUTBOX_POLL_INTERVAL_SECONDS: ${OUTBOX_POLL_INTERVAL_SECONDS:-1.0}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  consumer:
+    build: .
+    container_name: payment_service_consumer
+    command: ["faststream", "run", "app.consumer.main:app"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-payment}:${POSTGRES_PASSWORD:-payment}@postgres:5432/${POSTGRES_DB:-payment_service}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+
 volumes:
   postgres_data:
